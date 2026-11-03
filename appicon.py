@@ -49,14 +49,19 @@ def icon(size: int = 256) -> np.ndarray:
 
 
 def write_ico(path: Path):
-    """ICO holding PNGs (Vista and later): one chunk helper, zlib, no imaging library."""
+    """ICO: plain 32-bit bitmaps up to 128 px (what Explorer extracts) and a PNG at 256 px; zlib only, no imaging library."""
     def png(a: np.ndarray) -> bytes:
         def chunk(tag, data): return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
         raw = b"".join(PNG_ROW_PREFIX + row.tobytes() for row in a)
         return (PNG_MAGIC + chunk(b"IHDR", struct.pack(">IIBBBBB", a.shape[1], a.shape[0], 8, 6, 0, 0, 0))
                 + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+    def dib(a: np.ndarray) -> bytes:  # 32-bit BGRA bottom-up DIB plus the 1-bit AND mask Explorer's extractor still wants
+        h, w = a.shape[:2]
+        bgra = a[::-1][..., [2, 1, 0, 3]].tobytes()
+        mask = b"\0" * ((w + 31) // 32 * 4) * h
+        return struct.pack("<IiiHHIIiiII", 40, w, h * 2, 1, 32, 0, len(bgra) + len(mask), 0, 0, 0, 0) + bgra + mask
     sizes = (16, 24, 32, 48, 64, 128, 256)
-    images = [png(icon(s)) for s in sizes]
+    images = [png(icon(s)) if s == 256 else dib(icon(s)) for s in sizes]  # Explorer only reads PNG entries at 256 px
     head = struct.pack("<HHH", 0, 1, len(sizes))
     offset, entries = 6 + 16 * len(sizes), b""
     for s, data in zip(sizes, images):
@@ -87,4 +92,4 @@ if __name__ == "__main__":  # self-check: asserts only, prints nothing
         assert b[:6] == b"\x00\x00\x01\x00\x07\x00"
         for i in range(7):
             off = struct.unpack_from("<I", b, 6 + 16 * i + 12)[0]
-            assert b[off:off + 4] == PNG_MAGIC[:4]
+            assert b[off:off + 4] == (PNG_MAGIC[:4] if i == 6 else b"\x28\x00\x00\x00")  # DIB header below 256 px, PNG at 256
