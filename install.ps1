@@ -169,7 +169,7 @@ try {
         Say 'button once it opens and choose Pin to taskbar.'
         if (-not $NoStart) {
             try { Start-Process "$env:WINDIR\System32\ie4uinit.exe" -ArgumentList '-show' } catch { }  # Explorer caches shortcut icons by path: make it re-read the redrawn one
-            Start-Process explorer.exe "`"$($Links[0])`""
+            Invoke-Item $Links[0]  # ShellExecute on the shortcut itself; a throwaway explorer.exe launcher can drop the launch
         }
     }
 } catch {
