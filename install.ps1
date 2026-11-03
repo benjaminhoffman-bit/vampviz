@@ -17,7 +17,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-$Files = 'vampviz.pyw', 'README.md', 'LICENSE.txt', 'install.ps1', 'Install.cmd'
+$Files = 'vampviz.pyw', 'shaders.py', 'appicon.py', 'README.md', 'LICENSE.txt', 'install.ps1', 'Install.cmd'
 $Libs = 'numpy', 'moderngl', 'glfw', 'pyaudiowpatch'
 $Links = "$Programs\VAMPVIZ.lnk", "$Desktop\VAMPVIZ.lnk", "$Programs\Uninstall VAMPVIZ.lnk"
 $AppId = 'SilvaDes.VAMPVIZ'
