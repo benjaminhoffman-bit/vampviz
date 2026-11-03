@@ -1,0 +1,24 @@
+VAMPVIZ
+Copyright (c) 2026 SilvaDes LLC. All rights reserved.
+
+You may download and use VAMPVIZ for free, and you may share an unchanged copy
+of this repository or a link to it.
+
+You may not:
+- sell VAMPVIZ, or charge for access to it;
+- share changed copies;
+- use the SilvaDes name or logo, except to refer to this project.
+
+You may change your own copy for your own use.
+
+VAMPVIZ is provided "as is", without warranty of any kind. SilvaDes LLC is not
+liable for any damage or loss that comes from using it.
+
+Parts made by others keep their own terms:
+- The fonts in assets/fonts (Oxanium, IBM Plex Mono) are under the SIL Open
+  Font License 1.1; its texts (OFL-Oxanium.txt, OFL-IBM-Plex.txt) are there.
+- VB-CABLE, the virtual audio cable VAMPVIZ sends its sound through, is
+  VB-Audio's software. It is not part of VAMPVIZ; you get it from VB-Audio.
+- Python is not part of VAMPVIZ.
+
+Questions: open an issue on this repository.

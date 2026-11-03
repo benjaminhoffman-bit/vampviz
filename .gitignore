@@ -1,0 +1,5 @@
+# made on each PC, next to the app
+/vampviz.json
+/vampviz.log
+/assets/vampviz.ico
+__pycache__/
