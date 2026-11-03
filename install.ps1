@@ -6,7 +6,7 @@ VAMPVIZ installer: one command, and nothing needs admin. Press Win+R and paste:
 or double-click Install.cmd in the extracted download. Run it again to update; your settings stay.
 Nothing here needs admin: Python goes in your user folder, the libraries in your user site-packages,
 VAMPVIZ in %LOCALAPPDATA%\VAMPVIZ, with Start menu and desktop shortcuts.
-Uninstall: the "Uninstall VAMPVIZ" shortcut, or Install.cmd -Uninstall.
+Uninstall: Settings > Apps > Installed apps (Apps & features on Windows 10) > VAMPVIZ, or Install.cmd -Uninstall.
 #>
 param(
     [switch]$Uninstall,
@@ -19,7 +19,8 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $Files = 'vampviz.pyw', 'shaders.py', 'appicon.py', 'README.md', 'LICENSE.txt', 'install.ps1', 'Install.cmd'
 $Libs = 'numpy', 'moderngl', 'glfw', 'pyaudiowpatch'
-$Links = "$Programs\VAMPVIZ.lnk", "$Desktop\VAMPVIZ.lnk", "$Programs\Uninstall VAMPVIZ.lnk"
+$Links = "$Programs\VAMPVIZ.lnk", "$Desktop\VAMPVIZ.lnk"
+$Reg = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\VAMPVIZ'
 $AppId = 'SilvaDes.VAMPVIZ'
 
 function Say([string]$text) { Write-Host "  $text" }
@@ -44,7 +45,7 @@ function Find-Python {
 }
 
 function Add-Helpers {
-    # stamp a shortcut with the AppUserModelID, so Windows shows VAMPVIZ as its own taskbar app and a pin starts it
+    # tag a shortcut with the AppUserModelID, so Windows shows VAMPVIZ as its own taskbar app and a pin starts it
     if ('VampVizAppId' -as [type]) { return }
     Add-Type -TypeDefinition @'
 using System;
@@ -82,8 +83,9 @@ public static class VampVizAppId {
 }
 
 function Stop-VampViz {
+    $pyw = Join-Path $Dest 'vampviz.pyw'   # no backslash-letter sequence for a file writer to mangle
     $running = @(Get-CimInstance Win32_Process -Filter "Name LIKE 'python%'" |
-        Where-Object { $_.CommandLine -like "*$Destampviz.pyw*" } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
+        Where-Object { $_.CommandLine -like "*$pyw*" } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
     if (-not $running) { return }
     try { [void][VampVizAppId]::Quit() } catch { }
     foreach ($p in $running) {
@@ -91,12 +93,12 @@ function Stop-VampViz {
     }
 }
 
-function Add-Link([string]$path, [string]$target, [string]$arguments, [string]$about, [bool]$stamp) {
+function Add-Link([string]$path, [string]$target, [string]$arguments, [string]$about) {
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($path)
     $link.TargetPath, $link.Arguments, $link.WorkingDirectory = $target, $arguments, $Dest
     $link.IconLocation, $link.Description = "$Dest\assets\vampviz.ico,0", $about
     $link.Save()
-    if ($stamp) { try { [VampVizAppId]::Set($path, $AppId) } catch { } }  # only the taskbar grouping is lost
+    try { [VampVizAppId]::Set($path, $AppId) } catch { }  # only the taskbar grouping is lost
 }
 
 try {
@@ -106,6 +108,7 @@ try {
         Set-Location $env:TEMP; [Environment]::CurrentDirectory = $env:TEMP
         Stop-VampViz
         Remove-Item $Links -ErrorAction SilentlyContinue
+        Remove-Item $Reg -Recurse -ErrorAction SilentlyContinue; Remove-Item "$Programs\Uninstall VAMPVIZ.lnk" -ErrorAction SilentlyContinue
         $keep = if ($NoStart) { 'y' } else { Read-Host '  Keep your settings, in case you install it again? (Y/n)' }
         if ($keep -match '^\s*n') { Remove-Item $Dest -Recurse -Force -ErrorAction SilentlyContinue }
         else { Get-ChildItem $Dest -Exclude 'vampviz.json' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force }
@@ -149,17 +152,25 @@ try {
 
         Step 'Shortcuts'
         New-Item -ItemType Directory -Force $Programs, $Desktop | Out-Null
-        Add-Link $Links[0] $pythonw "`"$Dest\vampviz.pyw`"" 'VAMPVIZ: a visualizer for whatever your PC is playing' $true
-        Add-Link $Links[1] $pythonw "`"$Dest\vampviz.pyw`"" 'VAMPVIZ: a visualizer for whatever your PC is playing' $true
+        Add-Link $Links[0] $pythonw "`"$Dest\vampviz.pyw`"" 'VAMPVIZ: a visualizer for whatever your PC is playing'
+        Add-Link $Links[1] $pythonw "`"$Dest\vampviz.pyw`"" 'VAMPVIZ: a visualizer for whatever your PC is playing'
         $where = ''
         foreach ($name in 'Dest', 'Programs', 'Desktop') {
             if ($PSBoundParameters.ContainsKey($name)) { $where += " -$name `"$((Resolve-Path (Get-Variable $name -ValueOnly)).Path)`"" }
         }
-        Add-Link $Links[2] "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" `
-            "-NoProfile -ExecutionPolicy Bypass -File `"$Dest\install.ps1`" -Uninstall$where" 'Remove VAMPVIZ' $false
+        Remove-Item "$Programs\Uninstall VAMPVIZ.lnk" -ErrorAction SilentlyContinue   # older installs had one
+        New-Item -Path $Reg -Force | Out-Null
+        @{ DisplayName = 'VAMPVIZ'; Publisher = 'SilvaDes LLC'; DisplayIcon = "$Dest\assets\vampviz.ico"; InstallLocation = $Dest
+           InstallDate = (Get-Date -Format yyyyMMdd); URLInfoAbout = 'https://github.com/benjaminhoffman-bit/vampviz'
+           UninstallString = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$Dest\install.ps1`" -Uninstall$where"
+        }.GetEnumerator() | ForEach-Object { Set-ItemProperty $Reg $_.Key $_.Value }
+        foreach ($n in 'NoModify', 'NoRepair') { Set-ItemProperty $Reg $n 1 -Type DWord }
         Say 'VAMPVIZ is in the Start menu and on the desktop. To keep it on the taskbar, right-click its taskbar'
         Say 'button once it opens and choose Pin to taskbar.'
-        if (-not $NoStart) { Start-Process explorer.exe "`"$($Links[0])`"" }
+        if (-not $NoStart) {
+            try { Start-Process "$env:WINDIR\System32\ie4uinit.exe" -ArgumentList '-show' } catch { }  # Explorer caches shortcut icons by path: make it re-read the redrawn one
+            Start-Process explorer.exe "`"$($Links[0])`""
+        }
     }
 } catch {
     Write-Host ''
